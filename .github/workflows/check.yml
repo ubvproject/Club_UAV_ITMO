@@ -1,0 +1,38 @@
+name: Проверка решений
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Структура, размеры, синтаксис, секреты
+        if: github.event_name == 'push'
+        run: python3 tools/check.py
+
+      - name: То же + только своя папка
+        if: github.event_name == 'pull_request'
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          ASSOC: ${{ github.event.pull_request.author_association }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 tools/check.py --pr-author "$AUTHOR" --assoc "$ASSOC" --base "$BASE"
+
+      - name: Неизвестные имена и ошибки в .py (ruff)
+        run: |
+          pip install --quiet ruff
+          ruff check --select E9,F63,F7,F82 --output-format=github resheniya
